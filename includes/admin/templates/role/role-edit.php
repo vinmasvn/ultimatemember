@@ -42,7 +42,7 @@ do_action( 'um_roles_add_meta_boxes', 'um_role_meta' );
  */
 do_action( 'um_roles_add_meta_boxes_um_role_meta' );
 
-$data = array();
+$data = array( 'name' => '' );
 $option = array();
 global $wp_roles;
 
@@ -81,7 +81,6 @@ if ( ! empty( $_POST['role'] ) ) {
 		if ( 'add' == sanitize_key( $_GET['tab'] ) ) {
 
 			$data['name'] = trim( esc_html( strip_tags( $data['name'] ) ) );
-
 			if ( empty( $data['name'] ) ) {
 				$error .= __( 'Title is empty!', 'ultimate-member' ) . '<br />';
 			}
@@ -94,24 +93,44 @@ if ( ! empty( $_POST['role'] ) ) {
 				$id = 'custom_role_' . $auto_increment;
 			}
 
-			$redirect = add_query_arg( array( 'page'=>'um_roles', 'tab'=>'edit', 'id'=>$id, 'msg'=>'a' ), admin_url( 'admin.php' ) );
-		} elseif ( 'edit' == sanitize_key( $_GET['tab'] ) && ! empty( $_GET['id'] ) ) {
-			$id = sanitize_key( $_GET['id'] );
-
-			$pre_role_meta = get_option( "um_role_{$id}_meta", array() );
-			if ( isset( $pre_role_meta['name'] ) ) {
-				$data['name'] = $pre_role_meta['name'];
-			}
-
-			$redirect = add_query_arg( array( 'page' => 'um_roles', 'tab' => 'edit', 'id' => $id, 'msg'=> 'u' ), admin_url( 'admin.php' ) );
-		}
-
-
-		$all_roles = array_keys( get_editable_roles() );
-		if ( 'add' == sanitize_key( $_GET['tab'] ) ) {
+			$all_roles = array_keys( get_editable_roles() );
 			if ( in_array( 'um_' . $id, $all_roles ) || in_array( $id, $all_roles ) ) {
 				$error .= __( 'Role already exists!', 'ultimate-member' ) . '<br />';
 			}
+
+			$redirect = add_query_arg( array( 'page'=>'um_roles', 'tab'=>'edit', 'id'=>$id, 'msg'=>'a' ), admin_url( 'admin.php' ) );
+
+		} elseif ( 'edit' == sanitize_key( $_GET['tab'] ) && ! empty( $_GET['id'] ) ) {
+
+			if ( ! empty( $data['_um_is_custom'] ) ) {
+				$data['name'] = trim( esc_html( strip_tags( $data['name'] ) ) );
+				if ( empty( $data['name'] ) ) {
+					$error .= __( 'Title is empty!', 'ultimate-member' ) . '<br />';
+				}
+			}
+
+			$id = sanitize_key( $_GET['id'] );
+
+			$pre_role_meta = get_option( "um_role_{$id}_meta", array() );
+			if ( empty( $data['name'] ) && isset( $pre_role_meta['name'] ) ) {
+				$data['name'] = $pre_role_meta['name'];
+			} elseif ( isset( $pre_role_meta['name'] ) && $pre_role_meta['name'] !== $data['name'] ) {
+
+				// Rename items in the form fields "Roles (Dropdown)" and "Roles (Radio)"
+				$forms = UM()->query()->forms();
+				foreach ( $forms as $form_id => $form_title ) {
+					$fields = UM()->query()->get_attr( 'custom_fields', $form_id );
+					foreach ( array( 'role_select', 'role_radio' ) as $key ) {
+						if ( isset( $fields[$key] ) && isset( $fields[$key]['options'] ) && is_array( $fields[$key]['options'] ) && in_array( $pre_role_meta['name'], $fields[$key]['options'] ) ) {
+							$ind = current( array_keys( $fields[$key]['options'], $pre_role_meta['name'] ) );
+							$fields[$key]['options'][$ind] = $data['name'];
+							UM()->fields()->update_field( $key, $fields[$key], $form_id );
+						}
+					}
+				}
+			}
+
+			$redirect = add_query_arg( array( 'page' => 'um_roles', 'tab' => 'edit', 'id' => $id, 'msg'=> 'u' ), admin_url( 'admin.php' ) );
 		}
 
 		if ( '' == $error ) {
@@ -191,9 +210,12 @@ $screen_id = $current_screen->id; ?>
 						<div id="titlewrap">
 							<?php if ( 'add' == sanitize_key( $_GET['tab'] ) ) { ?>
 								<label for="title" class="screen-reader-text"><?php _e( 'Title', 'ultimate-member' ) ?></label>
-								<input type="text" name="role[name]" placeholder="<?php esc_attr_e( 'Enter Title Here', 'ultimate-member' ) ?>" id="title" value="<?php echo isset( $data['name'] ) ? $data['name'] : '' ?>" />
+								<input id="title" type="text" name="role[name]" value="<?php echo esc_attr( $data['name'] ); ?>" placeholder="<?php esc_attr_e( 'Enter Title Here', 'ultimate-member' ) ?>" required="required" />
+							<?php } elseif ( ! empty( $data['_um_is_custom'] ) ) { ?>
+								<label for="title" class="screen-reader-text"><?php _e( 'Title', 'ultimate-member' ); ?></label>
+								<input id="title" type="text" name="role[name]" value="<?php echo esc_attr( $data['name'] ); ?>" placeholder="<?php esc_attr_e( 'Enter Title Here', 'ultimate-member' ); ?>" title="<?php echo esc_attr( 'Title', 'ultimate-member' ); ?>" required="required" />
 							<?php } else { ?>
-								<span style="float: left;width:100%;"><?php echo isset( $data['name'] ) ? stripslashes( $data['name'] ) : '' ?></span>
+								<span style="float: left;width:100%;"><?php echo esc_html( $data['name'] ); ?></span>
 							<?php } ?>
 						</div>
 					</div>
