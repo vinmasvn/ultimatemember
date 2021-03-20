@@ -906,7 +906,17 @@ if ( ! class_exists( 'um\core\Fields' ) ) {
 			 * {"var":"$data","type":"array","desc":"Field Data"}]
 			 * @usage add_filter( 'um_field_value', 'function_name', 10, 5 );
 			 */
-			return apply_filters( 'um_field_value', $value, $default, $key, $type, $data );
+			$result = apply_filters( 'um_field_value', $value, $default, $key, $type, $data );
+
+                        if ( $this->viewing && ( ! isset( $result ) || $_field_value == '' ) ) {
+				if ($type == "file") {
+					return "Not uploaded yet.";
+				} else {
+					return "Not set.";
+				}
+			} else {
+				return $result;
+			}
 		}
 
 
